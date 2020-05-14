@@ -26,12 +26,9 @@ public class CourseManagementActor extends BaseActor {
 
     private void createCourse(Request request) {
         Response response = new Response();
-        if(request.getRequest().containsKey("source")){
-            response.put("do_11301654129459200011", "do_1234");
-        } else {
-            response.put("course_id", "do_1234");
-            response.put("versionKey", "1589374765530");
-        }
+        response.put("course_id", "do_1234");
+        response.put("identifier", "do_1234");
+        response.put("versionKey", "1589374765530");
         sender().tell(response, self());
     }
 }
