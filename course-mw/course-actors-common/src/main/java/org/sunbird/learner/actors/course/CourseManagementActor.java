@@ -27,6 +27,8 @@ import static org.sunbird.common.responsecode.ResponseCode.SERVER_ERROR;
 
 public class CourseManagementActor extends BaseActor {
     private static ObjectMapper mapper = new ObjectMapper();
+    private String copyUrl = "/content/v3/copy/";
+    private String createUrl = "/content/v3/create";
 
     @Override
     public void onReceive(Request request) throws Throwable {
@@ -37,7 +39,6 @@ public class CourseManagementActor extends BaseActor {
             case "createCourse":
                 createCourse(request);
                 break;
-
             default:
                 onReceiveUnsupportedOperation(requestedOperation);
                 break;
@@ -47,19 +48,6 @@ public class CourseManagementActor extends BaseActor {
     private void createCourse(Request request) throws Exception {
         Map<String, Object> contentMap = new HashMap<>();
         contentMap.putAll((Map<String, Object>) request.get(SunbirdKey.COURSE));
-        String requestUrl;
-        if (request.getRequest().containsKey(SunbirdKey.SOURCE)) {
-            if(!((Map<String, Object>) request.get(SunbirdKey.COURSE)).containsKey(SunbirdKey.COPY_SCHEME)) {
-                contentMap.put(SunbirdKey.COPY_SCHEME, SunbirdKey.TEXT_BOOK_TO_COURSE);
-            }
-            requestUrl = getConfigValue(EKSTEP_BASE_URL) + "/content/v3/copy/" + request.get(SunbirdKey.SOURCE) + "?type=deep";
-        } else {
-            requestUrl = getConfigValue(EKSTEP_BASE_URL) + "/content/v3/create";
-        }
-        Map<String, String> headers = new HashMap<String, String>() {{
-            put(SunbirdKey.CONTENT_TYPE_HEADER, SunbirdKey.APPLICATION_JSON);
-            put(SunbirdKey.X_CHANNEL_ID, (String) request.getContext().get(SunbirdKey.CHANNEL));
-        }};
         Map<String, Object> requestMap = new HashMap<String, Object>() {{
             put(SunbirdKey.REQUEST, new HashMap<String, Object>() {{
                 put(SunbirdKey.CONTENT, contentMap);
@@ -67,57 +55,26 @@ public class CourseManagementActor extends BaseActor {
         }};
         try {
             HttpResponse<String> updateResponse =
-                    Unirest.post(requestUrl)
-                            .headers(headers)
+                    Unirest.post(getRequestUrl(request, contentMap))
+                            .headers(getHeaders((String) request.getContext().get(SunbirdKey.CHANNEL)))
                             .body(mapper.writeValueAsString(requestMap))
                             .asString();
+
             ProjectLogger.log(
                     "CourseManagementActor:createCourse : Request for course create : "
                             + mapper.writeValueAsString(requestMap),
                     LoggerEnum.INFO.name());
-
             ProjectLogger.log(
                     "Sized: CourseManagementActor:createCourse : size of request : "
                             + mapper.writeValueAsString(requestMap).getBytes().length,
                     LoggerEnum.INFO);
-            if (null != updateResponse) {
-                Response response = mapper.readValue(updateResponse.getBody(), Response.class);
-                ProjectLogger.log(
-                        "Sized: CourseManagementActor:createCourse : size of response : "
-                                + updateResponse.getBody().getBytes().length,
-                        LoggerEnum.INFO);
-                if (response.getResponseCode().getResponseCode() == ResponseCode.OK.getResponseCode()) {
-                    if (request.getRequest().containsKey(SunbirdKey.SOURCE)) {
-                        Map<String, Object> node_id = (Map<String, Object>) response.get(SunbirdKey.NODE_ID);
-                        response.put(SunbirdKey.IDENTIFIER, node_id.get(request.get(SunbirdKey.SOURCE)));
-                    }
-                    response.getResult().remove(SunbirdKey.NODE_ID);
-                    response.getResult().put(SunbirdKey.COURSE_ID, response.get(SunbirdKey.IDENTIFIER));
-                    response.getResult().put(SunbirdKey.IDENTIFIER, response.get(SunbirdKey.IDENTIFIER));
-                    response.getResult().put(SunbirdKey.VERSION_KEY, response.get(SunbirdKey.VERSION_KEY));
-                    sender().tell(response, self());
-                } else {
-                    Map<String, Object> resultMap =
-                            Optional.ofNullable(response.getResult()).orElse(new HashMap<>());
-                    String message = "Course creation failed ";
-                    if (MapUtils.isNotEmpty(resultMap)) {
-                        Object obj = Optional.ofNullable(resultMap.get(SunbirdKey.TB_MESSAGES)).orElse("");
-                        if (obj instanceof List) {
-                            message += ((List<String>) obj).stream().collect(Collectors.joining(";"));
-                        } else if (StringUtils.isNotEmpty(response.getParams().getErrmsg())) {
-                            message += response.getParams().getErrmsg();
-                        } else {
-                            message += String.valueOf(obj);
-                        }
-                    }
-                    ProjectCommonException.throwClientErrorException(
-                            ResponseCode.customServerError,
-                            MessageFormat.format(
-                                    ResponseCode.customServerError.getErrorMessage(), message));
-                }
-            } else {
-                ProjectCommonException.throwClientErrorException(ResponseCode.CLIENT_ERROR);
+
+            Response response = validateUpdateResponse(updateResponse);
+            if (request.getRequest().containsKey(SunbirdKey.SOURCE)) {
+                Map<String, Object> node_id = (Map<String, Object>) response.get(SunbirdKey.NODE_ID);
+                response.put(SunbirdKey.IDENTIFIER, node_id.get(request.get(SunbirdKey.SOURCE)));
             }
+            sender().tell(response, self());
         } catch (Exception ex) {
             ProjectLogger.log("CourseManagementActor:createCourse : course create error ", ex);
             if (ex instanceof ProjectCommonException) {
@@ -129,6 +86,36 @@ public class CourseManagementActor extends BaseActor {
                         SERVER_ERROR.getResponseCode());
             }
         }
+    }
+
+    private String getRequestUrl(Request request, Map<String, Object> contentMap) {
+        String requestUrl = getConfigValue(EKSTEP_BASE_URL);
+        if (request.getRequest().containsKey(SunbirdKey.SOURCE)) {
+            if (!((Map<String, Object>) request.get(SunbirdKey.COURSE)).containsKey(SunbirdKey.COPY_SCHEME)) {
+                contentMap.put(SunbirdKey.COPY_SCHEME, SunbirdKey.TEXT_BOOK_TO_COURSE);
+            }
+            return requestUrl + copyUrl + request.get(SunbirdKey.SOURCE) + "?type=deep";
+        }
+        return requestUrl + createUrl;
+    }
+
+    private Response validateUpdateResponse(HttpResponse<String> updateResponse) throws Exception{
+        if (null != updateResponse) {
+            return CreateResponse.createResponse(updateResponse, mapper);
+        } else {
+            throw new ProjectCommonException(
+                    ResponseCode.CLIENT_ERROR.getErrorCode(),
+                    ResponseCode.CLIENT_ERROR.getErrorMessage(),
+                    ResponseCode.CLIENT_ERROR.getResponseCode());
+        }
+    }
+
+    private Map<String, String> getHeaders(String channel) {
+        Map<String, String> headers = new HashMap<String, String>() {{
+            put(SunbirdKey.CONTENT_TYPE_HEADER, SunbirdKey.APPLICATION_JSON);
+            put(SunbirdKey.X_CHANNEL_ID, channel);
+        }};
+        return headers;
     }
 
 }
