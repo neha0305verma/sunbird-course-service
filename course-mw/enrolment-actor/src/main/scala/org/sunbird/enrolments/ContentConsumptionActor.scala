@@ -319,10 +319,14 @@ class ContentConsumptionActor @Inject() extends BaseEnrolmentActor {
     def getScore(): util.List[util.Map[String, AnyRef]] = {
         new util.ArrayList[util.Map[String, AnyRef]]() {
             {
-                add(mapAsJavaMap(Map("attemptId" -> "do_123",
-                    "lastAttemptedOn" -> "2019-05-13 16:08:45:125+0530",
-                    "totalMaxScore" -> 1,
-                    "totalScore" -> 1)))
+                add(new util.HashMap[String, AnyRef]() {
+                    {
+                        put("attemptId", "do_123")
+                        put("lastAttemptedOn", "2019-05-13 16:08:45:125+0530")
+                        put("totalMaxScore", 1.asInstanceOf[AnyRef])
+                        put("totalScore", 1.asInstanceOf[AnyRef])
+                    }
+                })
             }
         }
     }
