@@ -291,12 +291,15 @@ class ContentConsumptionActor @Inject() extends BaseEnrolmentActor {
         val batchId = request.get(JsonKey.BATCH_ID).asInstanceOf[String]
         val courseId = request.get(JsonKey.COURSE_ID).asInstanceOf[String]
         val contentIds = request.getRequest.getOrDefault(JsonKey.CONTENT_IDS, new java.util.ArrayList[String]()).asInstanceOf[java.util.List[String]]
+        val fields = request.getRequest.getOrDefault(JsonKey.FIELDS, new java.util.ArrayList[String]()).asInstanceOf[java.util.List[String]]
         val contentsConsumed = getContentsConsumption(userId, courseId, contentIds, batchId, request.getRequestContext)
         val response = new Response
         if(CollectionUtils.isNotEmpty(contentsConsumed)) {
             val filteredContents = contentsConsumed.map(m => {
                 ProjectUtil.removeUnwantedFields(m, JsonKey.DATE_TIME, JsonKey.USER_ID, JsonKey.ADDED_BY, JsonKey.LAST_UPDATED_TIME)
                 m.put(JsonKey.COLLECTION_ID, m.getOrDefault(JsonKey.COURSE_ID, ""))
+                if (fields.contains("score"))
+                    m.putAll(mapAsJavaMap(Map("score" -> getScore())))
                 m
             }).asJava
             response.put(JsonKey.RESPONSE, filteredContents)
@@ -311,5 +314,16 @@ class ContentConsumptionActor @Inject() extends BaseEnrolmentActor {
         pushTokafkaEnabled = kafkaEnabled
         cassandraOperation = cassandraOps
         this
+    }
+
+    def getScore(): util.List[util.Map[String, AnyRef]] = {
+        new util.ArrayList[util.Map[String, AnyRef]]() {
+            {
+                add(mapAsJavaMap(Map("attemptId" -> "do_123",
+                    "lastAttemptedOn" -> "2019-05-13 16:08:45:125+0530",
+                    "totalMaxScore" -> 1,
+                    "totalScore" -> 1)))
+            }
+        }
     }
 }
