@@ -491,7 +491,9 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
                 });
         batchStatement.add(insert);
       }
+      System.out.println("batchStatement : " + batchStatement);
       resultSet = session.execute(batchStatement);
+      System.out.println("resultSet : " + resultSet);
       response.put(Constants.RESPONSE, Constants.SUCCESS);
     } catch (QueryExecutionException
         | QueryValidationException
