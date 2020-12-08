@@ -494,7 +494,7 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
       System.out.println("batchStatement : " + batchStatement.toString());
       System.out.println("batchStatement.getKeyspace : " + batchStatement.getKeyspace() );
       System.out.println("batchStatement.getStatements : " + batchStatement.getStatements().toString() );
-      System.out.println("batchStatement.getConsistencyLevel : " + batchStatement.getConsistencyLevel().toString() );
+      System.out.println("batchStatement.getConsistencyLevel : " + batchStatement.getConsistencyLevel() );
       resultSet = session.execute(batchStatement);
       System.out.println("resultSet : " + resultSet.toString());
       System.out.println("resultSet.getAllExecutionInfo : " + resultSet.getAllExecutionInfo());
