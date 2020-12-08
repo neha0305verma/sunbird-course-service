@@ -499,7 +499,7 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
       System.out.println("resultSet : " + resultSet.toString());
       System.out.println("resultSet.getAllExecutionInfo : " + resultSet.getAllExecutionInfo());
       System.out.println("resultSet.getExecutionInfo : " + resultSet.getExecutionInfo());
-      System.out.println("resultSet.one : " + resultSet.one().toString());
+      System.out.println("resultSet.one : " + resultSet.one());
       response.put(Constants.RESPONSE, Constants.SUCCESS);
     } catch (QueryExecutionException
         | QueryValidationException
